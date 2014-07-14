@@ -1,0 +1,20 @@
+node_modules/
+*.log
+
+# IntelliJ settings
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse settings
+.classpath
+.project
+.settings/
+
+# OS X
+.DS_Store
+
+# Backup and lock files
+*~
+\#*\#

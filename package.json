@@ -1,0 +1,25 @@
+{
+  "name": "yarnl",
+  "version": "0.0.1",
+  "description": "Yet another Redis NodeJS lock",
+  "repository": "gabegorelick/yarnl",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [
+    "redis",
+    "lock"
+  ],
+  "author": "Gabe Gorelick",
+  "license": "MIT",
+  "dependencies": {
+    "lodash": "^2.4.1",
+    "node-redis-warlock": "0.0.7",
+    "redis": "^0.11.0"
+  },
+  "devDependencies": {
+    "chai": "^1.9.1",
+    "mocha": "^1.20.1"
+  }
+}
