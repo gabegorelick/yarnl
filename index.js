@@ -1,9 +1,11 @@
 'use strict';
 
+var crypto = require('crypto');
 var _ = require('lodash');
-
 var redis = require('redis');
-var redisWarlock = require('node-redis-warlock');
+var uuid = require('node-uuid');
+var Scripto = require('redis-scripto');
+var luaUnlock = require('fs').readFileSync(__dirname + '/unlock.lua', {encoding: 'utf8'});
 
 function Lock (name, options) {
   if (!(this instanceof Lock)) {
@@ -15,21 +17,21 @@ function Lock (name, options) {
   }
 
   this.name = name;
+
+  // not totally sure why we need this, but https://github.com/TheDeveloper/warlock does it
+  this.key = 'lock:' + crypto.createHash('sha1').update(this.name).digest('hex').substr(0, 10);
+
   this.options = _.assign({
     ttl: 5000, // redis-lock's default
     retryDelay: 50, // redis-lock's default
     maxAttempts: null // keep trying forever
   }, options);
 
-  var client = this.options.client || redis.createClient();
-
-  // TODO we might want to use our own locking code, see https://github.com/TheDeveloper/warlock/issues/3
-  this.warlock = redisWarlock(client);
-
-  /**
-   * Key in Redis this lock lives in
-   */
-  this.key = this.warlock.makeKey(this.name);
+  this.client = this.options.client || redis.createClient();
+  this.scriptManager = this.options.scriptManager || new Scripto(this.client);
+  this.scriptManager.load({
+    unlock: luaUnlock
+  });
 }
 
 Lock.prototype.lock = function lock (options, callback) {
@@ -40,18 +42,20 @@ Lock.prototype.lock = function lock (options, callback) {
 
   options = _.assign({}, this.options, options);
 
+  var lock = this;
   var attempts = 0;
   var doLock = function () {
     attempts++;
 
     // we always try to acquire the lock first and then check maxAttempts, since there's no point setting maxAttempts
     // equal to 0
-    this.warlock.lock(this.name, options.ttl, function (err, unlock) {
+    var value = options.value || uuid.v1();
+    lock.client.set(lock.key, value, 'NX', 'PX', options.ttl, function (err, locked) {
       if (err) {
         return callback(err);
       }
 
-      if (!unlock) {
+      if (!locked) {
         if (options.maxAttempts && options.maxAttempts <= attempts) {
           return callback(null, false);
         }
@@ -61,18 +65,20 @@ Lock.prototype.lock = function lock (options, callback) {
       } else {
         // we got the lock
 
-        this.unlock = unlock; // override Lock.prototype.unlock
+        lock.unlock = function unlock (callback) { // override Lock.prototype.unlock
+          lock.scriptManager.run('unlock', [lock.key], [value], callback);
+        };
 
-        callback(null, unlock);
+        callback(null, lock.unlock);
       }
-    }.bind(this));
-  }.bind(this);
+    });
+  };
 
   doLock();
 };
 
 Lock.prototype.tryLock = function tryLock (options, callback) {
-  options = _.assign({maxAttempts: 1});
+  options = _.assign({maxAttempts: 1}, options);
   return this.lock(options, callback);
 };
 
