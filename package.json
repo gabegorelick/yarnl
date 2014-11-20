@@ -1,6 +1,6 @@
 {
   "name": "yarnl",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Yet another Redis NodeJS lock",
   "repository": "gabegorelick/yarnl",
   "main": "index.js",
