@@ -18,7 +18,7 @@ function Lock (name, options) {
 
   this.name = name;
 
-  // not totally sure why we need this, but https://github.com/TheDeveloper/warlock does it
+  // make sure keys are constant length
   this.key = 'lock:' + crypto.createHash('sha1').update(this.name).digest('hex').substr(0, 10);
 
   this.options = _.assign({
@@ -42,6 +42,14 @@ Lock.prototype.lock = function lock (options, callback) {
 
   options = _.assign({}, this.options, options);
 
+  // default to constant delay
+  if (!_.isFunction(options.retryDelay)) {
+    var retryDelay = options.retryDelay;
+    options.retryDelay = function () {
+        return retryDelay;
+    };
+  }
+
   var lock = this;
   var attempts = 0;
   var doLock = function () {
@@ -61,7 +69,7 @@ Lock.prototype.lock = function lock (options, callback) {
         }
 
         // try again later
-        setTimeout(doLock, options.retryDelay);
+        setTimeout(doLock, options.retryDelay.call(lock));
       } else {
         // we got the lock
 

@@ -102,6 +102,34 @@ describe('lock', function () {
         });
       });
     });
+
+    it('should support specifying retryDelay as function', function (done) {
+      lock.lock(function (err, unlock) {
+        if (err) {
+          return done(err);
+        }
+
+        expect(unlock).to.be.ok;
+
+        var called = 0;
+        lock.lock({
+          retryDelay: function () {
+            called++;
+            unlock();
+            return called * 10;
+          }
+        }, function (err, unlock) {
+          if (err) {
+            return done(err);
+          }
+
+          expect(unlock).to.be.ok;
+          expect(called).to.equal(1);
+
+          done();
+        });
+      });
+    });
   });
 
   describe('unlock callback', function () {
